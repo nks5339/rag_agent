@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek R1 RAG Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1400px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            height: 90vh;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section {
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            font-size: 16px;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="file"],
+        input[type="number"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5568d3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .toggle-container label {
+            font-size: 13px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 24px;
+        }
+
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            max-width: 80%;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            background: #667eea;
+            color: white;
+            margin-left: auto;
+        }
+
+        .message.assistant {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-header {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        .message-content {
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .thinking-process {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .thinking-process summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+
+        .sources {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e8f4f8;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .sources summary {
+            cursor: pointer;
+            font-weight: 600;
+            color: #0288d1;
+            margin-bottom: 8px;
+        }
+
+        .source-item {
+            margin: 8px 0;
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            align-items: flex-end;
+        }
+
+        .input-wrapper {
+            flex: 1;
+        }
+
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: none;
+            min-height: 60px;
+            max-height: 150px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .send-button {
+            width: auto;
+            min-width: 100px;
+            padding: 12px 24px;
+            height: fit-content;
+        }
+
+        .web-search-toggle {
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .web-search-toggle.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-indicator.connected {
+            background: #4caf50;
+        }
+
+        .status-indicator.disconnected {
+            background: #f44336;
+        }
+
+        .document-list {
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .document-item {
+            padding: 8px;
+            background: #f5f5f5;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+
+        .alert.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .alert.error {
+            background: #ffebee;
+            color: #c62828;
+            border-left: 4px solid #c62828;
+        }
+
+        .alert.success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border-left: 4px solid #2e7d32;
+        }
+
+        .slider-container {
+            margin: 10px 0;
+        }
+
+        .slider-value {
+            font-size: 12px;
+            color: #667eea;
+            font-weight: 600;
+            text-align: right;
+            margin-top: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+
+            .sidebar {
+                max-height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="header">
+                <h1>🐋 DeepSeek R1</h1>
+            </div>
+
+            <!-- Model Info -->
+            <div class="section">
+                <h3>🤖 Model</h3>
+                <div class="alert info">
+                    Using: <strong>deepseek-r1:7b</strong>
+                </div>
+            </div>
+
+            <!-- RAG Mode Toggle -->
+            <div class="section">
+                <h3>🔍 RAG Mode</h3>
+                <div class="toggle-container">
+                    <label>Enable RAG</label>
+                    <label class="toggle">
+                        <input type="checkbox" id="ragEnabled" checked>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Qdrant Configuration -->
+            <div class="section" id="qdrantSection">
+                <h3>🔑 Qdrant Config</h3>
+                <div class="input-group">
+                    <label>Qdrant URL</label>
+                    <input type="text" id="qdrantUrl" placeholder="http://localhost:6333">
+                </div>
+                <div class="input-group">
+                    <label>API Key (Optional)</label>
+                    <input type="password" id="qdrantApiKey" placeholder="Leave empty for local">
+                </div>
+                <button onclick="configureQdrant()">💾 Save Config</button>
+            </div>
+
+            <!-- Web Search Configuration -->
+            <div class="section">
+                <h3>🌐 Web Search</h3>
+                <div class="toggle-container">
+                    <label>Enable Web Search</label>
+                    <label class="toggle">
+                        <input type="checkbox" id="webSearchEnabled">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="input-group">
+                    <label>Search Domains</label>
+                    <input type="text" id="searchDomains" 
+                           placeholder="arxiv.org,wikipedia.org" 
+                           value="arxiv.org,wikipedia.org,github.com,medium.com">
+                </div>
+            </div>
+
+            <!-- Similarity Threshold -->
+            <div class="section" id="thresholdSection">
+                <h3>🎯 Similarity</h3>
+                <div class="slider-container">
+                    <input type="range" id="similarityThreshold" 
+                           min="0" max="1" step="0.1" value="0.7">
+                    <div class="slider-value">
+                        Threshold: <span id="thresholdValue">0.7</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Document Upload -->
+            <div class="section" id="uploadSection">
+                <h3>📁 Upload</h3>
+                <div class="input-group">
+                    <label>PDF File</label>
+                    <input type="file" id="pdfFile" accept=".pdf">
+                </div>
+                <button onclick="uploadPDF()">📄 Upload PDF</button>
+                
+                <div class="input-group" style="margin-top: 15px;">
+                    <label>Web URL</label>
+                    <input type="text" id="webUrl" placeholder="https://example.com/article">
+                </div>
+                <button onclick="uploadURL()">🌐 Add URL</button>
+            </div>
+
+            <!-- Processed Documents -->
+            <div class="section" id="documentsSection">
+                <h3>📚 Documents</h3>
+                <ul class="document-list" id="documentList">
+                    <li style="text-align: center; color: #999; padding: 20px;">No documents yet</li>
+                </ul>
+                <button onclick="clearDocuments()" style="background: #f44336; margin-top: 10px;">🗑️ Clear All</button>
+            </div>
+
+            <!-- Clear Chat -->
+            <div class="section">
+                <button onclick="clearChat()" style="background: #ff9800;">🗑️ Clear Chat</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <div class="header">
+                <h1>💬 Chat</h1>
+                <span class="status-indicator connected" id="statusIndicator"></span>
+            </div>
+
+            <div id="alertContainer"></div>
+
+            <div class="chat-container" id="chatContainer">
+                <div class="message assistant">
+                    <div class="message-header">🤖 Assistant</div>
+                    <div class="message-content">
+                        Hello! I'm DeepSeek R1, your intelligent RAG assistant. Ask me anything!
+                        <br><br>
+                        <strong>Tips:</strong>
+                        <ul style="margin-top: 10px; margin-left: 20px;">
+                            <li>Enable RAG mode and upload documents for context-aware answers</li>
+                            <li>Toggle web search for real-time information</li>
+                            <li>Use the 🌐 button to force web search for a query</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <div class="web-search-toggle" id="webSearchToggle" onclick="toggleWebSearch()">
+                        🌐 Force Web Search: OFF
+                    </div>
+                    <textarea id="messageInput" 
+                              placeholder="Type your message here..." 
+                              onkeypress="handleKeyPress(event)"></textarea>
+                </div>
+                <button class="send-button" onclick="sendMessage()" id="sendButton">
+                    Send 🚀
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        const state = {
+            userId: 'user_' + Math.random().toString(36).substr(2, 9),
+            forceWebSearch: false,
+            ragEnabled: true,
+            webSearchEnabled: false,
+            isLoading: false
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadConfig();
+            checkHealth();
+            updateUI();
+        });
+
+        // Event listeners
+        document.getElementById('ragEnabled').addEventListener('change', (e) => {
+            state.ragEnabled = e.target.checked;
+            updateUI();
+        });
+
+        document.getElementById('webSearchEnabled').addEventListener('change', (e) => {
+            state.webSearchEnabled = e.target.checked;
+        });
+
+        document.getElementById('similarityThreshold').addEventListener('input', (e) => {
+            document.getElementById('thresholdValue').textContent = e.target.value;
+        });
+
+        // API Functions
+        async function checkHealth() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                document.getElementById('statusIndicator').classList.add('connected');
+            } catch (error) {
+                document.getElementById('statusIndicator').classList.remove('connected');
+                document.getElementById('statusIndicator').classList.add('disconnected');
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                
+                state.ragEnabled = config.rag_enabled;
+                state.webSearchEnabled = config.use_web_search;
+                
+                document.getElementById('ragEnabled').checked = config.rag_enabled;
+                document.getElementById('webSearchEnabled').checked = config.use_web_search;
+                document.getElementById('similarityThreshold').value = config.similarity_threshold;
+                document.getElementById('thresholdValue').textContent = config.similarity_threshold;
+                
+                if (config.search_domains) {
+                    document.getElementById('searchDomains').value = config.search_domains.join(',');
+                }
+                
+                if (config.processed_documents && config.processed_documents.length > 0) {
+                    updateDocumentList(config.processed_documents);
+                }
+                
+                updateUI();
+            } catch (error) {
+                console.error('Failed to load config:', error);
+            }
+        }
+
+        async function configureQdrant() {
+            const url = document.getElementById('qdrantUrl').value;
+            const apiKey = document.getElementById('qdrantApiKey').value;
+            
+            if (!url) {
+                showAlert('Please enter Qdrant URL', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/configure', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        qdrant_url: url,
+                        qdrant_api_key: apiKey || null,
+                        rag_enabled: state.ragEnabled,
+                        use_web_search: state.webSearchEnabled,
+                        similarity_threshold: parseFloat(document.getElementById('similarityThreshold').value),
+                        search_domains: document.getElementById('searchDomains').value.split(',').map(s => s.trim())
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('Configuration saved successfully!', 'success');
+                } else {
+                    showAlert('Configuration failed: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function uploadPDF() {
+            const fileInput = document.getElementById('pdfFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showAlert('Please select a PDF file', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                showAlert('Uploading PDF...', 'info');
+                
+                const response = await fetch('/api/upload/pdf', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    fileInput.value = '';
+                    loadConfig();
+                } else {
+                    showAlert('Upload failed: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function uploadURL() {
+            const url = document.getElementById('webUrl').value;
+            
+            if (!url) {
+                showAlert('Please enter a URL', 'error');
+                return;
+            }
+            
+            try {
+                showAlert('Processing URL...', 'info');
+                
+                const formData = new FormData();
+                formData.append('url', url);
+                
+                const response = await fetch('/api/upload/url', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert(result.message, 'success');
+                    document.getElementById('webUrl').value = '';
+                    loadConfig();
+                } else {
+                    showAlert('Upload failed: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function clearDocuments() {
+            if (!confirm('Are you sure you want to clear all documents?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/documents/clear', {
+                    method: 'DELETE'
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    showAlert('All documents cleared', 'success');
+                    loadConfig();
+                } else {
+                    showAlert('Failed to clear documents', 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || state.isLoading) {
+                return;
+            }
+            
+            // Add user message to chat
+            addMessage('user', message);
+            input.value = '';
+            state.isLoading = true;
+            document.getElementById('sendButton').disabled = true;
+            document.getElementById('sendButton').innerHTML = '<span class="loading"></span>';
+            
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        user_id: state.userId,
+                        force_web_search: state.forceWebSearch,
+                        rag_enabled: state.ragEnabled
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    addMessage('assistant', result.response, result.thinking_process, result.sources, result.search_type);
+                } else {
+                    showAlert('Error: ' + result.detail, 'error');
+                }
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            } finally {
+                state.isLoading = false;
+                document.getElementById('sendButton').disabled = false;
+                document.getElementById('sendButton').innerHTML = 'Send 🚀';
+            }
+        }
+
+        async function clearChat() {
+            if (!confirm('Clear chat history?')) {
+                return;
+            }
+            
+            try {
+                await fetch(`/api/history/${state.userId}`, {
+                    method: 'DELETE'
+                });
+                
+                document.getElementById('chatContainer').innerHTML = '';
+                showAlert('Chat cleared', 'success');
+            } catch (error) {
+                showAlert('Error: ' + error.message, 'error');
+            }
+        }
+
+        // UI Functions
+        function toggleWebSearch() {
+            state.forceWebSearch = !state.forceWebSearch;
+            const toggle = document.getElementById('webSearchToggle');
+            
+            if (state.forceWebSearch) {
+                toggle.classList.add('active');
+                toggle.textContent = '🌐 Force Web Search: ON';
+            } else {
+                toggle.classList.remove('active');
+                toggle.textContent = '🌐 Force Web Search: OFF';
+            }
+        }
+
+        function addMessage(role, content, thinkingProcess = null, sources = null, searchType = null) {
+            const container = document.getElementById('chatContainer');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${role}`;
+            
+            let html = `
+                <div class="message-header">${role === 'user' ? '👤 You' : '🤖 Assistant'}</div>
+                <div class="message-content">${formatContent(content)}</div>
+            `;
+            
+            if (thinkingProcess) {
+                html += `
+                    <details class="thinking-process">
+                        <summary>🤔 Show Thinking Process</summary>
+                        <div style="margin-top: 10px;">${formatContent(thinkingProcess)}</div>
+                    </details>
+                `;
+            }
+            
+            if (sources && sources.length > 0) {
+                html += `
+                    <details class="sources">
+                        <summary>📚 Show Sources (${sources.length})</summary>
+                        <div style="margin-top: 10px;">
+                `;
+                
+                sources.forEach(source => {
+                    const icon = source.type === 'pdf' ? '📄' : '🌐';
+                    html += `
+                        <div class="source-item">
+                            <strong>${icon} Source ${source.index}:</strong> ${source.name}<br>
+                            <span style="color: #666; font-size: 11px;">${source.content}</span>
+                        </div>
+                    `;
+                });
+                
+                html += `</div></details>`;
+            }
+            
+            if (searchType) {
+                const typeLabel = searchType === 'web' ? '🌐 Web Search' : '📚 Document Search';
+                html += `<div style="margin-top: 8px; font-size: 11px; color: #999;">${typeLabel}</div>`;
+            }
+            
+            messageDiv.innerHTML = html;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function formatContent(text) {
+            // Basic markdown-like formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function updateDocumentList(documents) {
+            const list = document.getElementById('documentList');
+            
+            if (documents.length === 0) {
+                list.innerHTML = '<li style="text-align: center; color: #999; padding: 20px;">No documents yet</li>';
+                return;
+            }
+            
+            list.innerHTML = documents.map(doc => {
+                const icon = doc.endsWith('.pdf') ? '📄' : '🌐';
+                const name = doc.length > 30 ? doc.substring(0, 30) + '...' : doc;
+                return `<li class="document-item">${icon} ${name}</li>`;
+            }).join('');
+        }
+
+        function updateUI() {
+            const ragEnabled = state.ragEnabled;
+            
+            document.getElementById('qdrantSection').style.display = ragEnabled ? 'block' : 'none';
+            document.getElementById('thresholdSection').style.display = ragEnabled ? 'block' : 'none';
+            document.getElementById('uploadSection').style.display = ragEnabled ? 'block' : 'none';
+            document.getElementById('documentsSection').style.display = ragEnabled ? 'block' : 'none';
+        }
+
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            
+            container.appendChild(alert);
+            
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
