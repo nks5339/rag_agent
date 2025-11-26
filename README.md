@@ -77,6 +77,7 @@ pip install -r requirements.txt
 deepseek-rag/
 ├── main.py              # Core logic and utilities
 ├── api.py               # FastAPI application
+├── config.py            # Configuration file
 ├── requirements.txt     # Python dependencies
 └── static/
     └── index.html       # Web interface
